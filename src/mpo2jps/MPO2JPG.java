@@ -10,13 +10,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashSet;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 /**
  *
- * @author gertjan.al
+ * @author HJ200, Meine Toonen
  */
 public class MPO2JPG {
 
@@ -180,6 +179,7 @@ public class MPO2JPG {
     }
 
     private void addBitmap(OutputStream byteOutputStream) throws IOException {
+        // Method overridden in Android lib
         byteOutputStream.flush();
         byteOutputStream.close();
     }
