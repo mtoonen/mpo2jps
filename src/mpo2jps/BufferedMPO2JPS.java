@@ -21,16 +21,15 @@ public class BufferedMPO2JPS {
     private static FileOutputStream fos = null;
 
     public static void main(String[] args) throws Exception {
-        File input = new File("leftright.mpo");
+        File input = new File("IMAG0960.mpo");
         InputStream stream = new FileInputStream(input);
 
 
         byte[] bytes = new byte[BUFFER_SIZE];
 
-        int off = 0;
         int length = BUFFER_SIZE;
         int last = -1;
-        while ((length = stream.read(bytes, off, length)) != -1) {
+        while ((length = stream.read(bytes, 0, length)) != -1) {
 
             int index = 0;
             do {
@@ -61,10 +60,10 @@ public class BufferedMPO2JPS {
                     indexOffset++;
                 }
                 index += indexOffset;
-            } while (index < (bytes.length));
+            } while (index < (bytes.length -4));
 
             System.out.println("Write from" + last + " with length " + Math.max(0, Math.min(index - last, length)));
-            fos.write(bytes, last, Math.max(0, Math.min(index - last, length)));
+            fos.write(bytes, last,  Math.min(Math.min(index - last + 4, length),length-last));
             last = 0;
         }
         fos.close();
