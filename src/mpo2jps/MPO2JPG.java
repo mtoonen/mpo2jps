@@ -19,15 +19,15 @@ import java.util.TreeSet;
  */
 public class MPO2JPG {
 
-    private OutputStream byteOutputStream;
+    private ByteCheckerStream outputStream;
     private SortedSet<Integer> noProblem = new TreeSet<Integer>();
     private SortedSet<Integer> problem = new TreeSet<Integer>();
     private File root = new File("C:/mpooutput");
 
     public MPO2JPG() {
-        if (root.isDirectory() && root.exists()) {
-            deleteFolder(root, false);
-        }
+//        if (root.isDirectory() && root.exists()) {
+//            deleteFolder(root, false);
+//        }
     }
 
     private void deleteFolder(File directory, boolean deleteRoot) {
@@ -53,16 +53,24 @@ public class MPO2JPG {
         int failcount = 0;
         int succescount = 0;
 
-        for (int i = 5; i <= 8; i++) {
+        for (int i = 7; i <= 18; i++) {
             try {
                 int bitmaps = test.test(file, i);
-                System.out.println("Test passed for buffersize " + i + "; " + bitmaps);
-                succescount++;
+                if (bitmaps == 2) {
+                    System.out.println("Test passed for buffersize " + i + "; " + bitmaps);
+                    succescount++;
+
+                } else {
+                    System.out.println("Test failed for buffersize " + i);
+                    failcount++;
+                }
+
 
             } catch (IndexOutOfBoundsException e) {
-                System.err.println("Test failed for buffersize " + i);
+                System.out.println("Test failed for buffersize " + i);
                 failcount++;
             }
+            System.out.println();
         }
 
         test.printresults();
@@ -71,16 +79,15 @@ public class MPO2JPG {
         System.out.println(succescount + " tests passed, " + failcount + " tests failed");
     }
 
-    public int test(File file, int buffersize) throws Exception {
-        byteOutputStream = null;
+    public int test(File file, int buffersize) throws IndexOutOfBoundsException, IOException {
+        outputStream = null;
         InputStream stream = new FileInputStream(file);
-        File outputDir = new File(root, "size_" + buffersize);
-        outputDir.mkdirs();
+//        File outputDir = new File(root, "size_" + buffersize);
+//        outputDir.mkdirs();
 
         byte[] bytes = new byte[buffersize];
         byte[] headerBridge = new byte[6];
         int length = buffersize;
-        int last = 0;
         int bitmapcount = 1;
         while ((length = stream.read(bytes, 0, length)) != -1) {
             headerBridge[3] = bytes[0];
@@ -88,73 +95,91 @@ public class MPO2JPG {
             headerBridge[5] = bytes[2];
             int offset;
             int index = 0;
+            int last = 0;
             if ((offset = isHeader(headerBridge)) != -1) {
-                byteOutputStream.write(headerBridge, 0, offset);
-                addBitmap(byteOutputStream);
-                byteOutputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
-                byteOutputStream.write(headerBridge, offset, 2);
-                last = index = offset;
-                
-            } else if (byteOutputStream != null) {
-                byteOutputStream.write(headerBridge, 0, 3);
+                outputStream.write(headerBridge, 0, offset);
+                addBitmap(outputStream);
+//                byteOutputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
+                outputStream.reset();
+                bitmapcount++;
+
+                outputStream.write(headerBridge, offset, 4);
+                index = last = offset + 1;
+
+            } else if (outputStream != null) {
+                outputStream.write(headerBridge, 0, 3);
             }
-            
+
             do {
-                int indexOffset = 0;
                 if (fixNegative(bytes[index]) == 0xff) {
                     if (fixNegative(bytes[index + 1]) == 0xd8) {
                         if (fixNegative(bytes[index + 2]) == 0xff) {
                             if (fixNegative(bytes[index + 3]) == 0xe1) {
-                                if (byteOutputStream != null) {
-                                    byteOutputStream.write(bytes, 0, index);//, Math.max(0, Math.min(index -last, length)));
-                                    addBitmap(byteOutputStream);
-                                }
+                                if (outputStream != null) {
+                                    outputStream.write(bytes, 0, index);//, Math.max(0, Math.min(index -last, length)));
+                                    outputStream.reset();
 
-                                byteOutputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
-                                byteOutputStream.write(bytes, index, 2);
+//                                    outputStream.write(bytes, index, 2);
+                                    outputStream.write(bytes, index, length - index - 3);
+//                                    addBitmap(outputStream);
+                                } else {
+//                                outputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
+                                    outputStream = new ByteCheckerStream(file); // first time
+                                    outputStream.write(bytes, index, 4);
+                                }
                                 
+//                                outputStream.write(0);
+//                                outputStream.write(0);
+                                bitmapcount++;
+
+//                                index + bytes.length - 3;
+                                index += 4;
                                 last = index;
-                                indexOffset += 4;
                             } else {
-                                indexOffset += 2;
+                                index += 2;
                             }
                         } else {
-                            indexOffset += 3;
+                            index += 3;
                         }
                     } else {
-                        indexOffset++;
+                        index++;
                     }
                 } else {
-                    indexOffset++;
+                    index++;
                 }
-
-                index += indexOffset;
             } while (index < (bytes.length - 3));
 
             headerBridge[0] = bytes[bytes.length - 3];
             headerBridge[1] = bytes[bytes.length - 2];
             headerBridge[2] = bytes[bytes.length - 1];
             try {
-                byteOutputStream.write(bytes, last, length - index - last - 1);
-//                byteOutputStream.write(bytes, last, Math.min(Math.min(index - last - 2 /*offset for number of headerbytes*/ /* offset for overbrugging*/,
-//                        length), length - last));
+
+                if (length <= index) {
+                    // Last buffered data
+                    outputStream.write(bytes, last, length - last);
+
+                } else if (length - last - 3 > 0) {
+                    outputStream.write(bytes, last, length - last - 3);
+                }
 
             } catch (IndexOutOfBoundsException e) {
-                System.err.println("");
-                System.err.println(" bytes.length=" + bytes.length + " last=" + last + " index=" + index + " length=" + length);
-                System.err.println("Math.min(index - last + 4, length) = Math.min(" + (index - last + 4) + ", " + length + ")");
-                System.err.println("Problem? " + (bytes.length - index));
+                System.out.println();
                 throw e;
             }
             last = 0;
         }
-        addBitmap(byteOutputStream);
+        addBitmap(outputStream);
         stream.close();
 
         if (--bitmapcount < 2) {
             problem.add(buffersize);
         } else {
             noProblem.add(buffersize);
+        }
+        System.out.println();
+
+        if (outputStream.hasProblem()) {
+            return -1;
         }
 
         return bitmapcount;
