@@ -92,8 +92,8 @@ public class MPO2JPG {
                 byteOutputStream.write(headerBridge, 0, offset);
                 addBitmap(byteOutputStream);
                 byteOutputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
-                byteOutputStream.write(headerBridge, offset, 3);
-                last = index = offset + 1;
+                byteOutputStream.write(headerBridge, offset, 2);
+                last = index = offset;
                 
             } else if (byteOutputStream != null) {
                 byteOutputStream.write(headerBridge, 0, 3);
@@ -111,7 +111,8 @@ public class MPO2JPG {
                                 }
 
                                 byteOutputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
-
+                                byteOutputStream.write(bytes, index, 2);
+                                
                                 last = index;
                                 indexOffset += 4;
                             } else {
@@ -134,8 +135,9 @@ public class MPO2JPG {
             headerBridge[1] = bytes[bytes.length - 2];
             headerBridge[2] = bytes[bytes.length - 1];
             try {
-                byteOutputStream.write(bytes, last, Math.min(Math.min(index - last - 2 /*offset for number of headerbytes*/ /* offset for overbrugging*/,
-                        length), length - last));
+                byteOutputStream.write(bytes, last, length - index - last - 1);
+//                byteOutputStream.write(bytes, last, Math.min(Math.min(index - last - 2 /*offset for number of headerbytes*/ /* offset for overbrugging*/,
+//                        length), length - last));
 
             } catch (IndexOutOfBoundsException e) {
                 System.err.println("");
