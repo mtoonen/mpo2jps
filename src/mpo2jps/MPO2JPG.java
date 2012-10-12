@@ -48,12 +48,12 @@ public class MPO2JPG {
 
     public static void main(String... args) throws Exception {
         MPO2JPG test = new MPO2JPG();
-        File file = new File("leftright.mpo");
+        File file = new File("onetwothree.mpo");
 
         int failcount = 0;
         int succescount = 0;
 
-        for (int i = 5; i <= 257; i++) {
+        for (int i = 5; i <= 8; i++) {
             try {
                 int bitmaps = test.test(file, i);
                 System.out.println("Test passed for buffersize " + i + "; " + bitmaps);
@@ -92,14 +92,13 @@ public class MPO2JPG {
                 byteOutputStream.write(headerBridge, 0, offset);
                 addBitmap(byteOutputStream);
                 byteOutputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
-                byteOutputStream.write(headerBridge, offset, 4);
-                index = offset + 1;
-                last = index;
-            } else {
-                if (byteOutputStream != null) {
-                    byteOutputStream.write(headerBridge, 0, 3);
-                }
+                byteOutputStream.write(headerBridge, offset, 3);
+                last = index = offset + 1;
+                
+            } else if (byteOutputStream != null) {
+                byteOutputStream.write(headerBridge, 0, 3);
             }
+            
             do {
                 int indexOffset = 0;
                 if (fixNegative(bytes[index]) == 0xff) {
@@ -129,13 +128,13 @@ public class MPO2JPG {
                 }
 
                 index += indexOffset;
-            } while (index < (bytes.length - 4));
+            } while (index < (bytes.length - 3));
 
             headerBridge[0] = bytes[bytes.length - 3];
             headerBridge[1] = bytes[bytes.length - 2];
             headerBridge[2] = bytes[bytes.length - 1];
             try {
-                byteOutputStream.write(bytes, last, Math.min(Math.min(index - last + 4 /*offset for number of headerbytes*/ /* offset for overbrugging*/,
+                byteOutputStream.write(bytes, last, Math.min(Math.min(index - last - 2 /*offset for number of headerbytes*/ /* offset for overbrugging*/,
                         length), length - last));
 
             } catch (IndexOutOfBoundsException e) {
