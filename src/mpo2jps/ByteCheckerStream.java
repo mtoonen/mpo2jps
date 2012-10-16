@@ -33,10 +33,11 @@ public class ByteCheckerStream extends OutputStream {
         this.inputStream = new FileInputStream(original);
     }
 
-    public void reset() throws FileNotFoundException {
+    public void reset() throws FileNotFoundException, IOException {
         this.position = 0;
         this.fileNumber++;
         this.hasProblem = false;
+        // write((byte)0); // resetting, show if header is found in sout
     }
 
     @Override

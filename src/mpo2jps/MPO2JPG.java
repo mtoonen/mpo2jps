@@ -24,12 +24,6 @@ public class MPO2JPG {
     private SortedSet<Integer> problem = new TreeSet<Integer>();
     private File root = new File("C:/mpooutput");
 
-    public MPO2JPG() {
-//        if (root.isDirectory() && root.exists()) {
-//            deleteFolder(root, false);
-//        }
-    }
-
     private void deleteFolder(File directory, boolean deleteRoot) {
         File[] files = directory.listFiles();
         if (files != null) { //some JVMs return null for empty dirs
@@ -53,9 +47,10 @@ public class MPO2JPG {
         int failcount = 0;
         int succescount = 0;
 
-        for (int i = 7; i <= 40; i++) {
+        for (int i = 28; i <= 40; i++) {
             try {
                 int bitmaps = test.test(file, i);
+                System.out.println();
                 if (bitmaps == 2) {
                     System.out.println("Test passed for buffersize " + i + "; " + bitmaps);
                     succescount++;
@@ -83,6 +78,11 @@ public class MPO2JPG {
         outputStream = null;
         InputStream stream = new FileInputStream(file);
 
+        if (((int) file.length()) > buffersize) {
+            buffersize = 8;
+        }
+
+        boolean hasLastHeaderBytes = false;
         byte[] bytes = new byte[buffersize];
         byte[] headerBridge = new byte[6];
         int length = buffersize;
@@ -94,12 +94,13 @@ public class MPO2JPG {
             headerBridge[3] = bytes[0];
             headerBridge[4] = bytes[1];
             headerBridge[5] = bytes[2];
-            
+
             int offset;
             index = 0;
             last = 0;
 
             if ((offset = isHeader(headerBridge)) != -1) {
+                // Header found in bridge buffer
                 outputStream.write(headerBridge, 0, offset);
                 addBitmap(outputStream);
                 outputStream.reset();
@@ -109,6 +110,8 @@ public class MPO2JPG {
                 index = last = offset + 1;
 
             } else if (outputStream != null) {
+                // No header in bridge buffer, write bridge buffer
+                // (last 3 bytes of data from previous buffer run)
                 outputStream.write(headerBridge, 0, 3);
             }
 
@@ -118,6 +121,7 @@ public class MPO2JPG {
                         if (fixNegative(bytes[index + 2]) == 0xff) {
                             if (fixNegative(bytes[index + 3]) == 0xe1) {
                                 if (outputStream != null) {
+                                    // Header found in current buffer
                                     outputStream.write(bytes, 0, index);
                                     outputStream.reset();
 
@@ -144,27 +148,36 @@ public class MPO2JPG {
                 } else {
                     index++;
                 }
-            } while (index < (bytes.length - 3));
+            } while (index < length - 3);
 
-            headerBridge[0] = bytes[bytes.length - 3];
-            headerBridge[1] = bytes[bytes.length - 2];
-            headerBridge[2] = bytes[bytes.length - 1];
-            
-            try {
+            if (length >= 3) {
+                headerBridge[0] = bytes[length - 3];
+                headerBridge[1] = bytes[length - 2];
+                headerBridge[2] = bytes[length - 1];
 
-                if (length - last - 3 > 0) {
-                    outputStream.write(bytes, last, length - last - 3);
+                try {
+
+                    if (length - last - 3 > 0) {
+                        outputStream.write(bytes, last, length - last - 3);
+                    }
+
+                } catch (IndexOutOfBoundsException e) {
+                    System.out.println();
+                    throw e;
                 }
+                last = 0;
+                hasLastHeaderBytes = true;
 
-            } catch (IndexOutOfBoundsException e) {
-                System.out.println();
-                throw e;
+            } else {
+                outputStream.write(bytes, 0, length);
+                hasLastHeaderBytes = false;
             }
-            last = 0;
         }
 
         // TODO check if this is always true
-        outputStream.write(headerBridge, 0, 3);
+        if (hasLastHeaderBytes) {
+            outputStream.write(headerBridge, 0, 3);
+        }
 
         addBitmap(outputStream);
         stream.close();
@@ -174,7 +187,6 @@ public class MPO2JPG {
         } else {
             noProblem.add(buffersize);
         }
-        System.out.println();
 
         if (outputStream.hasProblem()) {
             return -1;
