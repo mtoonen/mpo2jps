@@ -53,7 +53,7 @@ public class MPO2JPG {
         int failcount = 0;
         int succescount = 0;
 
-        for (int i = 7; i <= 18; i++) {
+        for (int i = 7; i <= 40; i++) {
             try {
                 int bitmaps = test.test(file, i);
                 if (bitmaps == 2) {
@@ -82,24 +82,26 @@ public class MPO2JPG {
     public int test(File file, int buffersize) throws IndexOutOfBoundsException, IOException {
         outputStream = null;
         InputStream stream = new FileInputStream(file);
-//        File outputDir = new File(root, "size_" + buffersize);
-//        outputDir.mkdirs();
 
         byte[] bytes = new byte[buffersize];
         byte[] headerBridge = new byte[6];
         int length = buffersize;
         int bitmapcount = 1;
+        int index = 0;
+        int last = 0;
+
         while ((length = stream.read(bytes, 0, length)) != -1) {
             headerBridge[3] = bytes[0];
             headerBridge[4] = bytes[1];
             headerBridge[5] = bytes[2];
+            
             int offset;
-            int index = 0;
-            int last = 0;
+            index = 0;
+            last = 0;
+
             if ((offset = isHeader(headerBridge)) != -1) {
                 outputStream.write(headerBridge, 0, offset);
                 addBitmap(outputStream);
-//                byteOutputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
                 outputStream.reset();
                 bitmapcount++;
 
@@ -116,24 +118,19 @@ public class MPO2JPG {
                         if (fixNegative(bytes[index + 2]) == 0xff) {
                             if (fixNegative(bytes[index + 3]) == 0xe1) {
                                 if (outputStream != null) {
-                                    outputStream.write(bytes, 0, index);//, Math.max(0, Math.min(index -last, length)));
+                                    outputStream.write(bytes, 0, index);
                                     outputStream.reset();
 
-//                                    outputStream.write(bytes, index, 2);
-                                    outputStream.write(bytes, index, length - index - 3);
-//                                    addBitmap(outputStream);
                                 } else {
-//                                outputStream = new FileOutputStream(new File(outputDir, "mpo_bitmap" + bitmapcount++ + ".jpg"));
-                                    outputStream = new ByteCheckerStream(file); // first time
-                                    outputStream.write(bytes, index, 4);
+                                    outputStream = new ByteCheckerStream(file); // First time
                                 }
-                                
-//                                outputStream.write(0);
-//                                outputStream.write(0);
+
+                                int skip = Math.min(length - index - 3, 4);
+                                outputStream.write(bytes, index, skip);
                                 bitmapcount++;
 
 //                                index + bytes.length - 3;
-                                index += 4;
+                                index += skip;
                                 last = index;
                             } else {
                                 index += 2;
@@ -152,13 +149,10 @@ public class MPO2JPG {
             headerBridge[0] = bytes[bytes.length - 3];
             headerBridge[1] = bytes[bytes.length - 2];
             headerBridge[2] = bytes[bytes.length - 1];
+            
             try {
 
-                if (length <= index) {
-                    // Last buffered data
-                    outputStream.write(bytes, last, length - last);
-
-                } else if (length - last - 3 > 0) {
+                if (length - last - 3 > 0) {
                     outputStream.write(bytes, last, length - last - 3);
                 }
 
@@ -168,6 +162,10 @@ public class MPO2JPG {
             }
             last = 0;
         }
+
+        // TODO check if this is always true
+        outputStream.write(headerBridge, 0, 3);
+
         addBitmap(outputStream);
         stream.close();
 
@@ -200,8 +198,8 @@ public class MPO2JPG {
         return -1;
     }
 
-    private static int fixNegative(byte bytesMeine) {
-        return ((int) bytesMeine) < 0 ? ((int) bytesMeine) + 256 : (int) bytesMeine;
+    private static int fixNegative(byte byteValue) {
+        return ((int) byteValue) < 0 ? ((int) byteValue) + 256 : (int) byteValue;
     }
 
     private void addBitmap(OutputStream byteOutputStream) throws IOException {
